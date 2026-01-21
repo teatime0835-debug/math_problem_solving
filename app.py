@@ -6,7 +6,7 @@ import os
 import json
 
 # ===============================
-# 기본 설정
+# Streamlit 기본 설정
 # ===============================
 st.set_page_config(
     page_title="중학생 수학 AI 튜터",
@@ -16,29 +16,28 @@ st.set_page_config(
 
 st.title("📘 중학생 수학 AI 튜터")
 st.info(
-    "📌 교육용 AI 시연 서비스입니다.\n\n"
-    "- 문제 분석 결과는 AI가 자동 제안합니다.\n"
-    "- 필요 시 단원은 직접 수정할 수 있습니다."
+    "📌 교육 목적의 AI 시연 서비스입니다.\n\n"
+    "- AI가 문제를 분석하여 단원을 제안합니다.\n"
+    "- 필요하면 단원을 직접 수정할 수 있습니다."
 )
 
 # ===============================
-# OpenAI
+# OpenAI API
 # ===============================
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 if not os.getenv("OPENAI_API_KEY"):
-    st.error("OPENAI_API_KEY가 설정되지 않았습니다.")
+    st.error("⚠️ OPENAI_API_KEY가 설정되지 않았습니다.")
     st.stop()
 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 # ===============================
-# 중학교 단원 체계 (최종 반영본)
+# 중학교 전체 단원 체계
 # ===============================
 CURRICULUM = {
     "중학교 1학년": {
         "1. 소인수분해": [
-            "1.1 소수와 합성수",
-            "1.2 소인수분해",
-            "1.3 최대공약수",
-            "1.4 최소공배수"
+            "1.1 소수와 합성수", "1.2 소인수분해",
+            "1.3 최대공약수", "1.4 최소공배수"
         ],
         "2. 정수와 유리수": [
             "2.1 정수와 유리수",
@@ -123,7 +122,7 @@ CURRICULUM = {
             "4.4 그래프의 성질",
             "4.5 일차함수식 구하기",
             "4.6 일차함수와 일차방정식",
-            "4.7 두 일차함수와 연립방정식"
+            "4.7 두 일차함수와 연립일차방정식"
         ],
         "5. 삼각형의 성질": [
             "5.1 이등변삼각형의 성질",
@@ -169,13 +168,13 @@ CURRICULUM = {
             "2.5 인수분해의 뜻",
             "2.6 완전제곱식",
             "2.7 차의 제곱",
-            "2.8 복잡한 인수분해"
+            "2.8 복잡한 식의 인수분해"
         ],
         "3. 이차방정식": [
             "3.1 이차방정식과 그 해",
-            "3.2 인수분해",
-            "3.3 제곱근",
-            "3.4 근의 공식"
+            "3.2 인수분해를 이용한 풀이",
+            "3.3 제곱근을 이용한 풀이",
+            "3.4 근의 공식을 이용한 풀이"
         ],
         "4. 이차함수와 그래프": [
             "4.1 이차함수의 뜻",
@@ -206,55 +205,54 @@ CURRICULUM = {
     }
 }
 
-
 # ===============================
 # 이미지 업로드
 # ===============================
-uploaded = st.file_uploader("📷 문제 사진 업로드", ["png", "jpg", "jpeg"])
+uploaded = st.file_uploader("📷 문제 사진 업로드", ["jpg", "jpeg", "png"])
 
 if uploaded:
     image = Image.open(uploaded).convert("RGB")
     st.image(image, caption="업로드된 문제", use_container_width=True)
     base64_img = base64.b64encode(uploaded.getvalue()).decode()
 
-    # ===============================
-    # 문제 분석
-    # ===============================
     if st.button("🔍 문제 분석"):
         with st.spinner("AI가 문제를 분석 중입니다..."):
-            prompt = f"""
+            analysis_prompt = """
 너는 대한민국 중학교 수학 교사야.
 
-아래 단원 체계 중 하나로 정확히 분류해.
-출력은 JSON만.
+사진 속 문제를 아래 단원 체계 중에서 가장 적절하게 분류해.
+출력은 반드시 JSON 형식만 사용해.
 
-형식:
-{{
+{
   "학년": "",
   "대단원": "",
   "소단원": "",
   "문제유형": ""
-}}
+}
 """
 
-            res = client.responses.create(
-                model="gpt-4.1-mini",
-                input=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "input_text", "text": prompt},
-                        {"type": "input_image", "image_base64": base64_img}
-                    ]
-                }]
+            res = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": analysis_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{base64_img}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                response_format={"type": "json_object"}
             )
 
-            try:
-                st.session_state.analysis = json.loads(
-                    res.output_text.strip()
-                )
-            except:
-                st.error("문제 분석 실패 – 다시 시도해주세요.")
-                st.stop()
+            st.session_state.analysis = json.loads(
+                res.choices[0].message.content
+            )
 
 # ===============================
 # 분석 결과 UI
@@ -262,30 +260,14 @@ if uploaded:
 if "analysis" in st.session_state:
     st.markdown("## 🛠️ 문제 분석 결과 (수정 가능)")
 
-    grade = st.selectbox(
-        "학년",
-        list(CURRICULUM.keys()),
-        index=0
-    )
-
-    big_unit = st.selectbox(
-        "대단원",
-        list(CURRICULUM[grade].keys())
-    )
-
-    small_unit = st.selectbox(
-        "소단원",
-        CURRICULUM[grade][big_unit]
-    )
-
+    grade = st.selectbox("학년", list(CURRICULUM.keys()))
+    big_unit = st.selectbox("대단원", list(CURRICULUM[grade].keys()))
+    small_unit = st.selectbox("소단원", CURRICULUM[grade][big_unit])
     problem_type = st.text_input(
         "문제 유형",
         st.session_state.analysis.get("문제유형", "")
     )
 
-    # ===============================
-    # 유사 문제 생성
-    # ===============================
     if st.button("🧩 유사 문제 생성"):
         with st.spinner("유사 문제 생성 중..."):
             gen_prompt = f"""
@@ -296,8 +278,8 @@ if "analysis" in st.session_state:
 
 조건:
 - 원문제와 거의 동일한 유형
-- 숫자만 살짝 변경
-- 정답, 풀이 쓰지 말 것
+- 숫자나 조건만 살짝 변경
+- 정답과 풀이는 작성하지 말 것
 """
 
             out = client.chat.completions.create(
@@ -305,27 +287,27 @@ if "analysis" in st.session_state:
                 messages=[{"role": "user", "content": gen_prompt}]
             )
 
-            st.session_state.similar = out.choices[0].message.content
+            st.session_state.similar_problem = out.choices[0].message.content
             st.session_state.show_solution = False
 
 # ===============================
-# 유사 문제 표시
+# 유사 문제 출력
 # ===============================
-if "similar" in st.session_state:
+if "similar_problem" in st.session_state:
     st.markdown("## 🧩 유사 문제")
-    st.markdown(st.session_state.similar)
+    st.markdown(st.session_state.similar_problem)
 
     if st.button("📘 풀이 보기"):
         st.session_state.show_solution = True
 
 # ===============================
-# 풀이 + 정답
+# 풀이 출력
 # ===============================
 if st.session_state.get("show_solution"):
     sol_prompt = f"""
 다음 문제의 정답과 풀이를 단계별로 작성해라.
 
-{st.session_state.similar}
+{st.session_state.similar_problem}
 """
 
     sol = client.chat.completions.create(
