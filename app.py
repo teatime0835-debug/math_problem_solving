@@ -78,17 +78,21 @@ if uploaded:
             prompt = """
 너는 대한민국 중학교 수학 교과 과정을 정확히 알고 있는 AI 교사야.
 
-주어진 문제 이미지를 보고 다음 정보를 JSON 형식으로만 출력해.
+⚠️ 매우 중요:
+- 반드시 JSON 객체만 출력하라.
+- 설명 문장, 마크다운, 코드블록을 절대 포함하지 마라.
+- 출력은 { 로 시작하고 } 로 끝나야 한다.
+
+아래 형식으로만 출력하라.
 
 {
-  "grade": "중1/중2/중3",
+  "grade": "중1 또는 중2 또는 중3",
   "major": "대단원명",
   "minor": "소단원명",
-  "type": "구체적인 문제 유형 (예: 정비례 관계인지 판단하기)"
+  "type": "구체적인 문제 유형"
 }
-
-⚠️ 반드시 실제 교과 단원 체계에 맞게 가장 적합한 것으로 판단해.
 """
+
             res = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{
@@ -102,13 +106,19 @@ if uploaded:
                 temperature=0.1
             )
 
+            raw = res.choices[0].message.content.strip()
+            raw = raw.replace("```json", "").replace("```", "").strip()
+
             try:
-                st.session_state.analysis = json.loads(
-                    res.choices[0].message.content
-                )
-            except:
-                st.error("❗ 문제 분석에 실패했습니다.")
-                st.stop()
+                st.session_state.analysis = json.loads(raw)
+            except json.JSONDecodeError:
+                st.warning("⚠️ 자동 분석에 일부 오류가 있어 기본값으로 대체합니다.")
+                st.session_state.analysis = {
+                    "grade": "중2",
+                    "major": list(CURRICULUM["중2"].keys())[0],
+                    "minor": CURRICULUM["중2"][list(CURRICULUM["중2"].keys())[0]][0],
+                    "type": "기본 개념 확인"
+                }
 
     # ===============================
     # 2단계: 분석 결과 수정
@@ -151,8 +161,8 @@ if uploaded:
 - 소단원: {minor}
 - 문제 유형: {problem_type}
 
-⚠️ 원 문제와 **동일한 개념·유형**을 유지하되,
-수나 조건만 살짝 바꾼 문제를 1문제만 출제하라.
+⚠️ 원 문제와 동일한 개념과 풀이 전략을 유지하라.
+⚠️ 수나 조건만 살짝 바꾸어 1문제만 출제하라.
 ⚠️ 문제만 출력하라. 풀이 금지.
 """
 
@@ -185,11 +195,11 @@ if uploaded:
         # ===============================
         if st.button("✅ 정답 및 풀이 보기"):
             with st.spinner("풀이를 생성 중입니다..."):
-                solve_prompt = f"""
-다음 유사 문제의 풀이를 단계별로 설명하라.
+                solve_prompt = """
+다음 문제의 풀이를 단계별로 설명하라.
 
 규칙:
-- 숫자×숫자 → × 사용
+- 숫자×숫자 → 곱셈기호 × 사용
 - 숫자·문자 / 문자·문자 → 곱셈기호 생략
 - 중학생 눈높이 설명
 """
