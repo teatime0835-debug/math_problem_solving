@@ -6,7 +6,7 @@ import os
 import json
 
 # ===============================
-# Streamlit 기본 설정
+# 기본 설정
 # ===============================
 st.set_page_config(
     page_title="중학생 수학 AI 튜터",
@@ -16,132 +16,261 @@ st.set_page_config(
 
 st.title("📘 중학생 수학 AI 튜터")
 st.info(
-    "📌 이 서비스는 **교육 목적의 AI 시연**입니다.\n\n"
-    "- 문제 분석 및 유사 문제는 학습용입니다.\n"
-    "- 정답과 풀이는 버튼을 눌러 확인하세요."
+    "📌 교육용 AI 시연 서비스입니다.\n\n"
+    "- 문제 분석 결과는 AI가 자동 제안합니다.\n"
+    "- 필요 시 단원은 직접 수정할 수 있습니다."
 )
 
 # ===============================
-# OpenAI API
+# OpenAI
 # ===============================
-API_KEY = os.getenv("OPENAI_API_KEY")
-if not API_KEY:
-    st.error("⚠️ OpenAI API 키가 설정되지 않았습니다.")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+if not os.getenv("OPENAI_API_KEY"):
+    st.error("OPENAI_API_KEY가 설정되지 않았습니다.")
     st.stop()
 
-client = OpenAI(api_key=API_KEY)
-
 # ===============================
-# 중학교 1·2·3학년 단원 체계 (최종 확정본)
+# 중학교 단원 체계 (최종 반영본)
 # ===============================
 CURRICULUM = {
-    "1학년": {
+    "중학교 1학년": {
+        "1. 소인수분해": [
+            "1.1 소수와 합성수",
+            "1.2 소인수분해",
+            "1.3 최대공약수",
+            "1.4 최소공배수"
+        ],
+        "2. 정수와 유리수": [
+            "2.1 정수와 유리수",
+            "2.2 정수와 유리수의 대소 관계",
+            "2.3 정수와 유리수의 덧셈",
+            "2.4 정수와 유리수의 뺄셈",
+            "2.5 정수와 유리수의 곱셈",
+            "2.6 정수와 유리수의 나눗셈"
+        ],
+        "3. 문자의 사용과 식": [
+            "3.1 문자의 사용",
+            "3.2 식의 값",
+            "3.3 일차식의 곱셈과 나눗셈",
+            "3.4 일차식의 덧셈과 뺄셈",
+            "3.5 일차방정식과 그 해",
+            "3.6 일차방정식의 풀이"
+        ],
         "4. 좌표평면과 그래프": [
             "4.1 순서쌍과 좌표",
             "4.2 그래프의 뜻과 표현",
             "4.3 정비례와 그 그래프",
-            "4.4 반비례와 그 그래프",
+            "4.4 반비례와 그 그래프"
+        ],
+        "5. 기본 도형과 작도": [
+            "5.1 점, 선, 면",
+            "5.2 각의 뜻과 성질",
+            "5.3 위치 관계",
+            "5.4 평행선의 성질",
+            "5.5 삼각형의 작도",
+            "5.6 삼각형의 합동"
+        ],
+        "6. 평면도형의 성질": [
+            "6.1 다각형의 대각선의 개수",
+            "6.2 삼각형의 내각의 합",
+            "6.3 다각형의 내각의 합",
+            "6.4 다각형의 외각의 합",
+            "6.5 원과 부채꼴",
+            "6.6 부채꼴의 중심각, 길이와 넓이"
         ],
         "7. 입체도형의 성질": [
             "7.1 다면체",
             "7.2 회전체",
             "7.3 기둥과 뿔의 겉넓이",
             "7.4 기둥과 뿔의 부피",
-            "7.5 구의 겉넓이와 부피",
+            "7.5 구의 겉넓이와 부피"
         ],
+        "8. 자료의 정리와 해석": [
+            "8.1 대푯값",
+            "8.2 줄기와 잎 그림",
+            "8.3 도수분포표",
+            "8.4 히스토그램과 도수분포다각형",
+            "8.5 상대도수",
+            "8.6 통계 프로젝트"
+        ]
     },
-    "2학년": {
+
+    "중학교 2학년": {
+        "1. 유리수와 순환소수": [
+            "1.1 유리수의 소수 표현",
+            "1.2 유한소수와 순환소수",
+            "1.3 순환소수의 분수 표현"
+        ],
+        "2. 식의 계산": [
+            "2.1 지수법칙 (1), (2)",
+            "2.2 지수법칙 (3), (4)",
+            "2.3 단항식의 곱셈과 나눗셈",
+            "2.4 다항식의 덧셈과 뺄셈",
+            "2.5 다항식의 곱셈과 나눗셈"
+        ],
+        "3. 부등식과 연립방정식": [
+            "3.1 부등식의 해와 성질",
+            "3.2 일차부등식의 풀이",
+            "3.3 일차부등식 문제해결",
+            "3.4 연립일차방정식과 그 해",
+            "3.5 연립방정식의 풀이",
+            "3.6 연립방정식 문제해결"
+        ],
         "4. 일차함수와 그래프": [
-            "4.1 함수와 함숫값",
+            "4.1 함수와 함수값",
             "4.2 일차함수의 뜻과 그래프",
             "4.3 절편과 기울기",
             "4.4 그래프의 성질",
             "4.5 일차함수식 구하기",
             "4.6 일차함수와 일차방정식",
-            "4.7 두 일차함수와 연립일차방정식",
+            "4.7 두 일차함수와 연립방정식"
         ],
+        "5. 삼각형의 성질": [
+            "5.1 이등변삼각형의 성질",
+            "5.2 직각삼각형의 합동 조건",
+            "5.3 삼각형의 외심",
+            "5.4 삼각형의 내심"
+        ],
+        "6. 사각형의 성질": [
+            "6.1 평행사변형의 성질",
+            "6.2 평행사변형이 되는 조건",
+            "6.3 여러 가지 사각형의 성질"
+        ],
+        "7. 도형의 닮음과 피타고라스 정리": [
+            "7.1 도형의 닮음",
+            "7.2 삼각형의 닮음 조건",
+            "7.3 삼각형과 평행선",
+            "7.4 삼각형의 무게중심",
+            "7.5 피타고라스 정리"
+        ],
+        "8. 경우의 수와 확률": [
+            "8.1 경우의 수",
+            "8.2 확률의 뜻",
+            "8.3 확률의 성질",
+            "8.4 확률의 계산"
+        ]
     },
-    "3학년": {
+
+    "중학교 3학년": {
+        "1. 실수와 그 계산": [
+            "1.1 제곱근의 뜻",
+            "1.2 제곱근의 성질과 대소 관계",
+            "1.3 무리수와 실수",
+            "1.4 제곱근의 곱셈",
+            "1.5 제곱근의 나눗셈",
+            "1.6 제곱근의 덧셈과 뺄셈",
+            "1.7 실수의 대소 관계"
+        ],
+        "2. 다항식의 곱셈과 인수분해": [
+            "2.1 다항식의 곱셈",
+            "2.2 다항식의 제곱",
+            "2.3 항과 계수의 곱",
+            "2.4 두 일차식의 곱",
+            "2.5 인수분해의 뜻",
+            "2.6 완전제곱식",
+            "2.7 차의 제곱",
+            "2.8 복잡한 인수분해"
+        ],
+        "3. 이차방정식": [
+            "3.1 이차방정식과 그 해",
+            "3.2 인수분해",
+            "3.3 제곱근",
+            "3.4 근의 공식"
+        ],
+        "4. 이차함수와 그래프": [
+            "4.1 이차함수의 뜻",
+            "4.2 y=x², y=-x²",
+            "4.3 y=ax²",
+            "4.4 y=ax²+q",
+            "4.5 y=a(x-p)²",
+            "4.6 y=a(x-p)²+q",
+            "4.7 y=ax²+bx+c"
+        ],
+        "5. 삼각비": [
+            "5.1 삼각비의 뜻",
+            "5.2 30°, 45°, 60°",
+            "5.3 예각의 삼각비",
+            "5.4 삼각비의 활용"
+        ],
+        "6. 원의 성질": [
+            "6.1 원과 현",
+            "6.2 원과 접선",
+            "6.3 원주각",
+            "6.4 원주각의 활용"
+        ],
         "7. 통계": [
             "7.1 대푯값",
             "7.2 분산과 표준편차",
-            "7.3 산점도와 상관관계",
-        ],
-    },
+            "7.3 산점도와 상관관계"
+        ]
+    }
 }
+
 
 # ===============================
 # 이미지 업로드
 # ===============================
-uploaded_file = st.file_uploader("📷 문제 사진 업로드", type=["jpg", "jpeg", "png"])
+uploaded = st.file_uploader("📷 문제 사진 업로드", ["png", "jpg", "jpeg"])
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
+if uploaded:
+    image = Image.open(uploaded).convert("RGB")
     st.image(image, caption="업로드된 문제", use_container_width=True)
-
-    base64_img = base64.b64encode(uploaded_file.getvalue()).decode()
+    base64_img = base64.b64encode(uploaded.getvalue()).decode()
 
     # ===============================
-    # 1️⃣ 문제 분석
+    # 문제 분석
     # ===============================
     if st.button("🔍 문제 분석"):
-        with st.spinner("문제를 분석 중입니다..."):
-            analysis_prompt = """
+        with st.spinner("AI가 문제를 분석 중입니다..."):
+            prompt = f"""
 너는 대한민국 중학교 수학 교사야.
 
-아래 중학교 수학 단원 체계 안에서만 선택해서
-사진 속 문제를 가장 정확하게 분류해.
+아래 단원 체계 중 하나로 정확히 분류해.
+출력은 JSON만.
 
-📌 판단 기준
-1. 문제 해결에 반드시 필요한 핵심 개념
-2. 대표적인 단원 고유 문제 유형
-3. 애매하면 가장 직접적으로 사용된 개념 기준
-
-📌 출력 형식 (JSON만!)
-{
+형식:
+{{
   "학년": "",
   "대단원": "",
   "소단원": "",
   "문제유형": ""
-}
+}}
 """
 
-            res = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{
+            res = client.responses.create(
+                model="gpt-4.1-mini",
+                input=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": analysis_prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_img}"}}
+                        {"type": "input_text", "text": prompt},
+                        {"type": "input_image", "image_base64": base64_img}
                     ]
                 }]
             )
 
             try:
                 st.session_state.analysis = json.loads(
-                    res.choices[0].message.content.strip()
+                    res.output_text.strip()
                 )
             except:
-                st.error("❌ 문제 분석에 실패했습니다. 다시 시도해 주세요.")
+                st.error("문제 분석 실패 – 다시 시도해주세요.")
                 st.stop()
 
 # ===============================
-# 분석 결과 수정 UI
+# 분석 결과 UI
 # ===============================
 if "analysis" in st.session_state:
-    st.markdown("## 🛠️ 문제 분석 결과")
+    st.markdown("## 🛠️ 문제 분석 결과 (수정 가능)")
 
     grade = st.selectbox(
         "학년",
-        CURRICULUM.keys(),
-        index=list(CURRICULUM.keys()).index(
-            st.session_state.analysis.get("학년", "1학년")
-        )
+        list(CURRICULUM.keys()),
+        index=0
     )
 
     big_unit = st.selectbox(
         "대단원",
-        CURRICULUM[grade].keys()
+        list(CURRICULUM[grade].keys())
     )
 
     small_unit = st.selectbox(
@@ -155,28 +284,20 @@ if "analysis" in st.session_state:
     )
 
     # ===============================
-    # 2️⃣ 유사 문제 생성
+    # 유사 문제 생성
     # ===============================
     if st.button("🧩 유사 문제 생성"):
-        with st.spinner("유사 문제를 생성 중입니다..."):
+        with st.spinner("유사 문제 생성 중..."):
             gen_prompt = f"""
-너는 중학교 수학 문제 출제 전문가야.
+학년: {grade}
+대단원: {big_unit}
+소단원: {small_unit}
+문제 유형: {problem_type}
 
-📌 조건
-- 학년: {grade}
-- 대단원: {big_unit}
-- 소단원: {small_unit}
-- 문제 유형: {problem_type}
-
-📌 출제 규칙
-- 원래 문제와 거의 동일한 유형
-- 숫자나 조건만 약간 변경
-- 단원 이탈 절대 금지
-
-📌 출력 형식
-1. 네모 박스 안에 문제 제시
-2. 문제 아래에 문제 유형 1~2개만 간단히 표시
-3. 정답과 풀이는 쓰지 말 것
+조건:
+- 원문제와 거의 동일한 유형
+- 숫자만 살짝 변경
+- 정답, 풀이 쓰지 말 것
 """
 
             out = client.chat.completions.create(
@@ -184,64 +305,39 @@ if "analysis" in st.session_state:
                 messages=[{"role": "user", "content": gen_prompt}]
             )
 
-            st.session_state.similar_problem = out.choices[0].message.content
-            st.session_state.show_answer = False
+            st.session_state.similar = out.choices[0].message.content
             st.session_state.show_solution = False
 
 # ===============================
-# 유사 문제 출력
+# 유사 문제 표시
 # ===============================
-if "similar_problem" in st.session_state:
+if "similar" in st.session_state:
     st.markdown("## 🧩 유사 문제")
-    st.markdown(st.session_state.similar_problem)
+    st.markdown(st.session_state.similar)
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("✅ 정답 보기"):
-            st.session_state.show_answer = True
-
-    with col2:
-        if st.button("📘 풀이 보기"):
-            st.session_state.show_solution = True
+    if st.button("📘 풀이 보기"):
+        st.session_state.show_solution = True
 
 # ===============================
-# 정답 / 풀이
+# 풀이 + 정답
 # ===============================
-if st.session_state.get("show_answer") or st.session_state.get("show_solution"):
-    solve_prompt = f"""
-너는 중학교 수학 교사야.
+if st.session_state.get("show_solution"):
+    sol_prompt = f"""
+다음 문제의 정답과 풀이를 단계별로 작성해라.
 
-아래 [유사 문제]에 대해
-- 정답
-- 풀이 과정
-
-을 작성해.
-
-📌 규칙
-- 숫자×숫자 → 반드시 × 사용
-- 숫자×문자, 문자×문자 → 곱셈기호 생략
-- 단계별로 간결하고 친절하게 설명
-
-[유사 문제]
-{st.session_state.similar_problem}
+{st.session_state.similar}
 """
 
     sol = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": solve_prompt}]
+        messages=[{"role": "user", "content": sol_prompt}]
     )
 
-    if st.session_state.get("show_answer"):
-        st.markdown("### ✅ 정답")
-        st.markdown(sol.choices[0].message.content.split("풀이")[0])
-
-    if st.session_state.get("show_solution"):
-        st.markdown("### 📘 풀이")
-        st.markdown(sol.choices[0].message.content)
+    st.markdown("### ✅ 정답 및 풀이")
+    st.markdown(sol.choices[0].message.content)
 
 # ===============================
 # Footer
 # ===============================
 st.markdown("---")
-st.caption("© 2026 인공지능융합교육 프로젝트 | 중학생 수학 AI 튜터 (교육용)")
+st.caption("© 2026 인공지능융합교육 프로젝트 | 중학생 수학 AI 튜터")
